@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitoring</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #333;
+        }
+        .charts {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            width: 90%;
+            max-width: 1400px;
+            gap: 20px;
+        }
+        canvas {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>System Monitoring</h1>
+    <div class="charts">
+        <div>
+            <h3>CPU Usage</h3>
+            <canvas id="cpuChart" width="400" height="200"></canvas>
+        </div>
+        <div>
+            <h3>RAM Usage</h3>
+            <canvas id="ramChart" width="400" height="200"></canvas>
+        </div>
+        <div>
+            <h3>Network Usage</h3>
+            <canvas id="networkChart" width="400" height="200"></canvas>
+        </div>
+        <div>
+            <h3>Disk Usage</h3>
+            <canvas id="diskChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+    <script>
+        // Initialisierung der Charts
+        const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+        const ramCtx = document.getElementById('ramChart').getContext('2d');
+        const networkCtx = document.getElementById('networkChart').getContext('2d');
+        const diskCtx = document.getElementById('diskChart').getContext('2d');
+
+        const cpuChart = new Chart(cpuCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CPU Usage (%)',
+                    data: [],
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 1,
+                    tension: 0.4,
+                }]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Time (s)' } },
+                    y: { title: { display: true, text: 'Usage (%)' }, min: 0, max: 100 }
+                }
+            }
+        });
+
+        const ramChart = new Chart(ramCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'RAM Usage (%)',
+                    data: [],
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 1,
+                    tension: 0.4,
+                }]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Time (s)' } },
+                    y: { title: { display: true, text: 'Usage (%)' }, min: 0, max: 100 }
+                }
+            }
+        });
+
+        const networkChart = new Chart(networkCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Sent (kB/s)',
+                        data: [],
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderWidth: 1,
+                        tension: 0.4,
+                    },
+                    {
+                        label: 'Received (kB/s)',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderWidth: 1,
+                        tension: 0.4,
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Time (s)' } },
+                    y: { title: { display: true, text: 'Bandwidth (kB/s)' }, min: 0 }
+                }
+            }
+        });
+
+        const diskChart = new Chart(diskCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Disk Usage (%)',
+                    data: [],
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderWidth: 1,
+                    tension: 0.4,
+                }]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Time (s)' } },
+                    y: { title: { display: true, text: 'Usage (%)' }, min: 0, max: 100 }
+                }
+            }
+        });
+
+        let timeCounter = 0;
+
+        async function fetchMonitoringData() {
+            try {
+                const response = await fetch('/api/monitoring');
+                const data = await response.json();
+
+                timeCounter++;
+                const timeLabel = `${timeCounter}s`;
+
+                // Aktualisiere die Charts mit den neuen Daten
+                function updateChart(chart, value) {
+                    chart.data.labels.push(timeLabel);
+                    chart.data.datasets[0].data.push(value);
+                    if (chart.data.labels.length > 20) {
+                        chart.data.labels.shift();
+                        chart.data.datasets[0].data.shift();
+                    }
+                    chart.update();
+                }
+
+                updateChart(cpuChart, data.cpu_usage);
+                updateChart(ramChart, data.ram_usage);
+
+                // Netzwerk-Daten
+                networkChart.data.labels.push(timeLabel);
+                networkChart.data.datasets[0].data.push(data.network_sent);
+                networkChart.data.datasets[1].data.push(data.network_received);
+                if (networkChart.data.labels.length > 20) {
+                    networkChart.data.labels.shift();
+                    networkChart.data.datasets[0].data.shift();
+                    networkChart.data.datasets[1].data.shift();
+                }
+                networkChart.update();
+
+                // Festplatten-Daten
+                updateChart(diskChart, data.disk_usage);
+            } catch (error) {
+                console.error('Error fetching monitoring data:', error);
+            }
+        }
+
+        setInterval(fetchMonitoringData, 1000);
+        window.onload = fetchMonitoringData;
+    </script>
+</body>
+</html>
